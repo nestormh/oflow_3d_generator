@@ -17,17 +17,22 @@
 #include <iostream>
 #include "oflow_3d_generator.h"
 
-// #include <ros/ros.h>
+#include <ros/ros.h>
 
 using namespace std;
+using namespace oflow_3d_generator;
 
 int main(int argC, char **argV) {
-//     ros::init(argC, argV, "VoxelGridTracking");
-//     
-//     VoxelGridTracking vgt;
-//     vgt.start();
-
-    cout << "Hola mundo!!!" << endl;
+    ros::init(argC, argV, "oflow_3d_generator");
+    
+    cout << __FUNCTION__ << ":" << __LINE__ << endl;
+    std::string transport = argC > 1 ? argV[1] : "raw";
+    OFlow_3d_generator o3g(transport);
+    
+    cout << __FUNCTION__ << ":" << __LINE__ << endl;
+    ros::spin();
+    
+    cout << __FUNCTION__ << ":" << __LINE__ << endl;
     
     return 0;
 }

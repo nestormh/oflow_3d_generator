@@ -5,10 +5,20 @@ project(oflow_3d_generator)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-#   pcl_ros
+  pcl_ros
   roscpp
   std_msgs
-#   cv_bridge
+  cv_bridge
+  elas 
+  sensor_msgs 
+  nav_msgs 
+  message_filters 
+  image_transport 
+  cv_bridge 
+  image_geometry 
+  tf 
+  geometry_msgs 
+#   genmsg
 )
 
 set(ROS_BUILD_TYPE Debug)
