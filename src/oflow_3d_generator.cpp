@@ -73,8 +73,6 @@ OFlow3dGenerator::OFlow3dGenerator(const std::string& transport)
 void OFlow3dGenerator::process(const sensor_msgs::ImageConstPtr& l_image_msg, const sensor_msgs::ImageConstPtr& d_image_msg, 
                                  const sensor_msgs::CameraInfoConstPtr& l_info_msg, const sensor_msgs::CameraInfoConstPtr& r_info_msg)
 {
-    cout << "Processing..." << endl;
-    INIT_CLOCK(startTime)    
     cv_bridge::CvImageConstPtr leftImgPtr, dispImgPtr;
     leftImgPtr = cv_bridge::toCvShare(l_image_msg, sensor_msgs::image_encodings::MONO8);
     dispImgPtr = cv_bridge::toCvShare(d_image_msg, sensor_msgs::image_encodings::MONO8);
@@ -100,11 +98,6 @@ void OFlow3dGenerator::process(const sensor_msgs::ImageConstPtr& l_image_msg, co
         cloudMsg.header.stamp = ros::Time();
         m_flowVectorsPub.publish(cloudMsg);
     }
-    END_CLOCK(totalTime, startTime)
-    
-    ROS_INFO("[%s] Total time: %f seconds", __FUNCTION__, totalTime);
-    
-    
 }
 
 inline void OFlow3dGenerator::findPairsOFlow(const cv::Mat & img1, const cv::Mat & img2, 
