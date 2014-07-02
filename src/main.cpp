@@ -27,7 +27,7 @@ int main(int argC, char **argV) {
     
     cout << __FUNCTION__ << ":" << __LINE__ << endl;
     std::string transport = argC > 1 ? argV[1] : "raw";
-    OFlow_3d_generator o3g(transport);
+    OFlow3dGenerator o3g(transport);
     
     cout << __FUNCTION__ << ":" << __LINE__ << endl;
     ros::spin();

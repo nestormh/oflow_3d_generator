@@ -27,6 +27,7 @@
         <param name="pose_frame_id" value="base_link" />
     </node>
     
+<!--     <node launch-prefix="gdb -ex run &#45;&#45;args" pkg="oflow_3d_generator" type="oflow_3d_generator" name="oflow_3d_generator" output="screen" required="true"> -->
     <node pkg="oflow_3d_generator" type="oflow_3d_generator" name="oflow_3d_generator" output="screen" required="true">
         <remap from="stereo" to="stereo_and_odom" />
         <remap from="stereo_and_odom/left/$(arg namespace)/image" to="stereo_and_odom/left/image" />
@@ -45,42 +46,8 @@
     <!-- PCL Manager -->
      <node pkg="nodelet" type="nodelet" name="box_filter_manager" args="manager" output="screen"/>
      
-     <!-- Run a passthrough filter to delimit in x direction -->
-     <!--<node pkg="nodelet" type="nodelet" name="psx" args="load pcl/PassThrough box_filter_manager" output="screen">
-        <remap from="~input" to="/$(arg namespace)/elas_ros/point_cloud" />
-        <rosparam>
-            filter_field_name: x
-            filter_limit_min: -4.0
-            filter_limit_max: 4.0
-        </rosparam>
-    </node>-->
-
-    <!-- Run a passthrough filter to delimit in y direction -->
-    <!--<node pkg="nodelet" type="nodelet" name="psy" args="load pcl/PassThrough box_filter_manager" output="screen">
-        <remap from="~input" to="psx/output" />
-        <rosparam>
-            filter_field_name: y
-            filter_limit_min: 0.0
-            filter_limit_max: 24.0
-        </rosparam>
-    </node>-->
-
-    <!-- Run a passthrough filter to delimit in z direction -->
-    <!--<node pkg="nodelet" type="nodelet" name="psz" args="load pcl/PassThrough box_filter_manager" output="screen">
-        <remap from="~input" to="psy/output" />
-        <remap from="~output" to="/$(arg namespace)/pointCloudFiltered" />
-        <rosparam>
-            filter_field_name: z
-            filter_limit_min: -0.1
-            filter_limit_max: 13.5
-        </rosparam>
-    </node>-->
-    
-<!--     <node pkg="nodelet" type="nodelet" name="EXAMPLE_MANAGER" args="manager"/> -->
-    
     <include file="$(find grull_transform_pointcloud)/launch/launch.launch">
         <arg name="input_topic"     value="/$(arg namespace)/elas_ros/point_cloud" />
-<!--         <arg name="input_topic"     value="/$(arg namespace)/pointCloudFiltered"/> -->
         <arg name="output_topic"    value="/$(arg namespace)/pointCloudFilteredAndTransformed"/>
         <arg name="target_frame"    value="base_footprint"/>
         <arg name="nodelet_manager" value="box_filter_manager"/>
@@ -96,21 +63,8 @@
     </node>
 </group>
 
-<group ns="viewers">
-    <node pkg="image_view" type="image_view" name="dbg_input_img" output="screen" required="false">
-        <remap from="image" to="/$(arg namespace)/dbg/input_img"/>
-    </node>
-    <node pkg="image_view" type="image_view" name="dbg_depth_img" output="screen" required="false">
-        <remap from="image" to="/$(arg namespace)/dbg/depth_img"/>
-    </node>
-    <node pkg="image_view" type="image_view" name="dbg_others_img" output="screen" required="false">
-        <remap from="image" to="/$(arg namespace)/dbg/others_img"/>
-    </node>
-</group>
-<!-- <node pkg="rviz" type="rviz" name="rviz" required="false"  args="&#45;&#45;display-config  -->
-<node launch-prefix="optirun" pkg="rviz" type="rviz" name="rviz" required="false"  args="&#45;&#45;display-config 
+<!-- <node launch-prefix="optirun" pkg="rviz" type="rviz" name="rviz" required="false"  args="&#45;&#45;display-config  -->
+<node pkg="rviz" type="rviz" name="rviz" required="false"  args="&#45;&#45;display-config 
     $(find oflow_3d_generator)/config/testOFlow.rviz"/>
-<!--<node pkg="rosbag" type="record"  name="rosbag"
-    args="-o /tmp/2011_09_26_drive_0091_sync_" />-->
     
 </launch>

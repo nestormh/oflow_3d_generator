@@ -42,14 +42,19 @@
 
 #include <elas/elas.h>
 
+#include <chrono>
+
 using namespace std;
+
+#define INIT_CLOCK(start) auto start = std::chrono::high_resolution_clock::now();
+#define END_CLOCK(time, start) float time = std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now()-start).count();
 
 namespace oflow_3d_generator {
     
-class OFlow_3d_generator
+class OFlow3dGenerator
 {
 public:
-    OFlow_3d_generator(const std::string& transport);
+    OFlow3dGenerator(const std::string& transport);
     
 protected:
     // Type definitions
@@ -66,11 +71,20 @@ protected:
                  const sensor_msgs::CameraInfoConstPtr& l_info_msg, const sensor_msgs::CameraInfoConstPtr& r_info_msg);
     
     // Method functions
-    void publishMat(image_transport::Publisher & pub, const cv::Mat& img);
+    void findPairsOFlow(const cv::Mat & img1, const cv::Mat & img2, 
+                        vector<cv::Point2f> & outPoints1, vector<cv::Point2f> & outPoints2);
+    void compute3DVectors(const vector<cv::Point2f> & origPoints, 
+                            const vector<cv::Point2f> & destPoints, const cv::Mat & img, 
+                            const cv::Mat & origDispImg, const cv::Mat & destDispImg,
+                            pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr & outputVectors);
+    void get3DfromDisp(const cv::Mat & dispImg, 
+                        const cv::Point2d point2D, cv::Point3d & point3D);
     
     // Properties
-    vector<cv::Mat> m_leftImages;
-    vector<cv::Mat> m_dispImages;
+    deque<cv::Mat> m_leftImages;
+    deque<cv::Mat> m_dispImages;
+    image_geometry::StereoCameraModel m_model;
+    Elas::parameters m_param;
     
     Subscriber m_left_sub, m_disp_sub;
     InfoSubscriber m_left_info_sub, m_right_info_sub;
@@ -79,7 +93,7 @@ protected:
     boost::shared_ptr<ApproximateSync> m_approximate_sync;
     boost::shared_ptr<Elas> m_elas;
     
-    image_transport::Publisher m_dbgInputImg, m_dbgDepthImg, m_dbgOthers;
+    ros::Publisher m_flowVectorsPub;
 };
 
 }
