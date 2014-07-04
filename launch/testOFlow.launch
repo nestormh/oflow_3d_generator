@@ -35,9 +35,7 @@
         
         <param name="approximate_sync" value="true" />
         
-        <remap from="base_frame_id" to="left_cam" />
-        <param name="base_frame_id" value="left_cam" />
-        <param name="pose_frame_id" value="base_link" />
+        <param name="motion_frame_id" value="map" />
     </node>
    
 </group>

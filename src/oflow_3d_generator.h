@@ -36,6 +36,8 @@
 #include <cv_bridge/cv_bridge.h>
 
 #include <pcl_ros/point_cloud.h>
+#include <tf/transform_datatypes.h>
+#include <tf/transform_listener.h>
 #include <pcl/point_types.h>
 
 #include <grull_elas_ros/ElasFrameData.h>
@@ -77,14 +79,19 @@ protected:
                             const vector<cv::Point2f> & destPoints, const cv::Mat & img, 
                             const cv::Mat & origDispImg, const cv::Mat & destDispImg,
                             pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr & outputVectors);
-    void get3DfromDisp(const cv::Mat & dispImg, 
+    bool get3DfromDisp(const cv::Mat & dispImg, 
                         const cv::Point2d point2D, cv::Point3d & point3D);
+    void transformPoint(const cv::Point3d & inputPoint3D, const tf::StampedTransform & tfCamera2Motion, 
+                        cv::Point3d & outputPoint3D);
     
     // Properties
     deque<cv::Mat> m_leftImages;
     deque<cv::Mat> m_dispImages;
+    deque<tf::StampedTransform> m_camera2MotionTransformation;
     image_geometry::StereoCameraModel m_model;
     Elas::parameters m_param;
+    string m_motionFrame;
+    tf::TransformListener m_tfListener;
     
     Subscriber m_left_sub, m_disp_sub;
     InfoSubscriber m_left_info_sub, m_right_info_sub;

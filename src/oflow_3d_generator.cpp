@@ -17,6 +17,8 @@
 #include "oflow_3d_generator.h"
 
 #include <ros/ros.h>
+#include <tf/transform_datatypes.h>
+#include <tf/transform_listener.h>
 #include <pcl-1.7/pcl/point_cloud.h>
 #include <pcl-1.7/pcl/impl/point_types.hpp>
 
@@ -45,6 +47,9 @@ OFlow3dGenerator::OFlow3dGenerator(const std::string& transport)
     
     m_flowVectorsPub = nh.advertise<sensor_msgs::PointCloud2> ("flow_vectors", 1);
     
+    // Check the frame w.r.t. motion is computed.
+    local_nh.param<string>("motion_frame_id", m_motionFrame, "map");
+    
     // Synchronize input topics. Optionally do approximate synchronization.
     bool approx;
     local_nh.param("approximate_sync", approx, false);
@@ -60,6 +65,7 @@ OFlow3dGenerator::OFlow3dGenerator(const std::string& transport)
                                         m_left_sub, m_disp_sub, m_left_info_sub, m_right_info_sub) );
         m_exact_sync->registerCallback(boost::bind(&OFlow3dGenerator::process, this, _1, _2, _3, _4));
     }
+    
     
     // Create the elas processing class
     m_param = Elas::parameters(Elas::MIDDLEBURY);
@@ -78,25 +84,34 @@ void OFlow3dGenerator::process(const sensor_msgs::ImageConstPtr& l_image_msg, co
     dispImgPtr = cv_bridge::toCvShare(d_image_msg, sensor_msgs::image_encodings::MONO8);
     m_model.fromCameraInfo(*l_info_msg, *r_info_msg);
     
-    // TODO: Accumulate frames and process them
-    m_leftImages.push_back(leftImgPtr->image);
-    m_dispImages.push_back(dispImgPtr->image);
-    
-    if (m_leftImages.size() > 2) m_leftImages.pop_front();
-    if (m_dispImages.size() > 2) m_dispImages.pop_front();
-    
-    if (m_leftImages.size() == 2) {
-        vector<cv::Point2f> points1, points2;
-        pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr outputVectors;
-        findPairsOFlow(m_leftImages[0], m_leftImages[1], points1, points2);
-        compute3DVectors(points1, points2, m_leftImages[1], m_dispImages[0], m_dispImages[1], outputVectors);
+    tf::StampedTransform tfCamera2Motion;
+    try {
+        m_tfListener.lookupTransform(m_motionFrame, l_info_msg->header.frame_id, ros::Time(0), tfCamera2Motion);
         
-        // Publish results
-        sensor_msgs::PointCloud2 cloudMsg;
-        pcl::toROSMsg (*outputVectors, cloudMsg);
-        cloudMsg.header.frame_id = l_info_msg->header.frame_id;
-        cloudMsg.header.stamp = ros::Time();
-        m_flowVectorsPub.publish(cloudMsg);
+        // Accumulate images and frames, and process them
+        m_leftImages.push_back(leftImgPtr->image);
+        m_dispImages.push_back(dispImgPtr->image);
+        m_camera2MotionTransformation.push_back(tfCamera2Motion);
+        
+        if (m_leftImages.size() > 2) m_leftImages.pop_front();
+        if (m_dispImages.size() > 2) m_dispImages.pop_front();
+        if (m_camera2MotionTransformation.size() > 2) m_camera2MotionTransformation.pop_front();
+        
+        if (m_leftImages.size() == 2) {
+            vector<cv::Point2f> points1, points2;
+            pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr outputVectors;
+            findPairsOFlow(m_leftImages[0], m_leftImages[1], points1, points2);
+            compute3DVectors(points1, points2, m_leftImages[1], m_dispImages[0], m_dispImages[1], outputVectors);
+            
+            // Publish results
+            sensor_msgs::PointCloud2 cloudMsg;
+            pcl::toROSMsg (*outputVectors, cloudMsg);
+            cloudMsg.header.frame_id = l_info_msg->header.frame_id;
+            cloudMsg.header.stamp = ros::Time::now();
+            m_flowVectorsPub.publish(cloudMsg);
+        }
+    } catch (tf::TransformException ex){
+        ROS_ERROR("%s",ex.what());
     }
 }
 
@@ -160,17 +175,20 @@ inline void OFlow3dGenerator::compute3DVectors(const vector<cv::Point2f> & origP
             itOrig != origPoints.end(); itOrig++, itDest++) {
                 
         pcl::PointXYZRGBNormal flow;
-        cv::Point3d  origPoint3D, destPoint3D;
-        get3DfromDisp(origDispImg, *itOrig, origPoint3D);
-        get3DfromDisp(destDispImg, *itDest, destPoint3D);
+        cv::Point3d  origPoint3D, destPoint3D, motOrigPoint3D, motDestPoint3D;
+        if (! get3DfromDisp(origDispImg, *itOrig, origPoint3D)) continue;
+        if (! get3DfromDisp(destDispImg, *itDest, destPoint3D)) continue;
+    
+        transformPoint(origPoint3D, m_camera2MotionTransformation[0], motOrigPoint3D);
+        transformPoint(destPoint3D, m_camera2MotionTransformation[1], motDestPoint3D);
     
         flow.x = destPoint3D.x;
         flow.y = destPoint3D.y;
         flow.z = destPoint3D.z;
     
-        flow.normal_x = destPoint3D.x - origPoint3D.x;
-        flow.normal_y = destPoint3D.y - origPoint3D.y;
-        flow.normal_z = destPoint3D.z - origPoint3D.z;
+        flow.normal_x = motDestPoint3D.x - motOrigPoint3D.x;
+        flow.normal_y = motDestPoint3D.y - motOrigPoint3D.y;
+        flow.normal_z = motDestPoint3D.z - motOrigPoint3D.z;
         
         flow.b = img.at<cv::Vec3b>(itDest->y, itDest->x)[0];
         flow.g = img.at<cv::Vec3b>(itDest->y, itDest->x)[1];
@@ -180,12 +198,28 @@ inline void OFlow3dGenerator::compute3DVectors(const vector<cv::Point2f> & origP
     }
 }
 
-inline void OFlow3dGenerator::get3DfromDisp(const cv::Mat & dispImg, 
+inline bool OFlow3dGenerator::get3DfromDisp(const cv::Mat & dispImg, 
                                             const cv::Point2d point2D, cv::Point3d & point3D)
 {
     const float dMax = (float)(m_param.disp_max);
-    const double value = dispImg.at<uint8_t>(point2D.y, point2D.x); //dMax * dispImg.at<uint8_t>(point2D.y, point2D.x) / 255;
+    const double value = dispImg.at<uint8_t>(point2D.y, point2D.x);
+    
+    if (value == 0.0)
+        return false;
+    
     m_model.projectDisparityTo3d(point2D, value, point3D);
+    
+    return true;
 }
+
+inline void OFlow3dGenerator::transformPoint(const cv::Point3d & inputPoint3D, const tf::StampedTransform & tfCamera2Motion, 
+                                             cv::Point3d & outputPoint3D)
+{
+    tf::Vector3 tmpPoint = tfCamera2Motion * tf::Vector3(inputPoint3D.x, inputPoint3D.y, inputPoint3D.z);
+    outputPoint3D.x = tmpPoint.getX();
+    outputPoint3D.y = tmpPoint.getY();
+    outputPoint3D.z = tmpPoint.getZ();
+}
+
 
 }

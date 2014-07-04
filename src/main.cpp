@@ -25,14 +25,10 @@ using namespace oflow_3d_generator;
 int main(int argC, char **argV) {
     ros::init(argC, argV, "oflow_3d_generator");
     
-    cout << __FUNCTION__ << ":" << __LINE__ << endl;
     std::string transport = argC > 1 ? argV[1] : "raw";
     OFlow3dGenerator o3g(transport);
     
-    cout << __FUNCTION__ << ":" << __LINE__ << endl;
     ros::spin();
-    
-    cout << __FUNCTION__ << ":" << __LINE__ << endl;
     
     return 0;
 }
