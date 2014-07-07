@@ -106,7 +106,7 @@ void OFlow3dGenerator::process(const sensor_msgs::ImageConstPtr& l_image_msg, co
             // Publish results
             sensor_msgs::PointCloud2 cloudMsg;
             pcl::toROSMsg (*outputVectors, cloudMsg);
-            cloudMsg.header.frame_id = l_info_msg->header.frame_id;
+            cloudMsg.header.frame_id = m_motionFrame; // l_info_msg->header.frame_id;
             cloudMsg.header.stamp = ros::Time::now();
             m_flowVectorsPub.publish(cloudMsg);
         }
@@ -182,9 +182,9 @@ inline void OFlow3dGenerator::compute3DVectors(const vector<cv::Point2f> & origP
         transformPoint(origPoint3D, m_camera2MotionTransformation[0], motOrigPoint3D);
         transformPoint(destPoint3D, m_camera2MotionTransformation[1], motDestPoint3D);
     
-        flow.x = destPoint3D.x;
-        flow.y = destPoint3D.y;
-        flow.z = destPoint3D.z;
+        flow.x = motDestPoint3D.x;
+        flow.y = motDestPoint3D.y;
+        flow.z = motDestPoint3D.z;
     
         flow.normal_x = motDestPoint3D.x - motOrigPoint3D.x;
         flow.normal_y = motDestPoint3D.y - motOrigPoint3D.y;
