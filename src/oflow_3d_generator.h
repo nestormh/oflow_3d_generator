@@ -93,6 +93,8 @@ protected:
     string m_motionFrame;
     tf::TransformListener m_tfListener;
     
+    double m_deltaTime;
+    
     Subscriber m_left_sub, m_disp_sub;
     InfoSubscriber m_left_info_sub, m_right_info_sub;
     

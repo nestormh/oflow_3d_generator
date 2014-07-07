@@ -35,13 +35,13 @@ OFlow3dGenerator::OFlow3dGenerator(const std::string& transport)
     // Topics
     std::string stereo_ns = nh.resolveName("stereo");
     std::string left_topic = ros::names::clean(stereo_ns + "/left/" + nh.resolveName("image"));
-    std::string right_topic = ros::names::clean(stereo_ns + "/disparity/" + nh.resolveName("image"));
+    std::string disp_topic = ros::names::clean(stereo_ns + "/disparity/" + nh.resolveName("image"));
     std::string left_info_topic = stereo_ns + "/left/camera_info";
     std::string right_info_topic = stereo_ns + "/right/camera_info";
     
     image_transport::ImageTransport it(nh);
     m_left_sub.subscribe(it, left_topic, 1, transport);
-    m_disp_sub.subscribe(it, right_topic, 1, transport);
+    m_disp_sub.subscribe(it, disp_topic, 1, transport);
     m_left_info_sub.subscribe(nh, left_info_topic, 1);
     m_right_info_sub.subscribe(nh, right_info_topic, 1);
     
@@ -98,8 +98,13 @@ void OFlow3dGenerator::process(const sensor_msgs::ImageConstPtr& l_image_msg, co
         if (m_camera2MotionTransformation.size() > 2) m_camera2MotionTransformation.pop_front();
         
         if (m_leftImages.size() == 2) {
+            INIT_CLOCK(startCompute)
+            
             vector<cv::Point2f> points1, points2;
             pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr outputVectors;
+            
+            m_deltaTime = (m_camera2MotionTransformation[1].stamp_ - m_camera2MotionTransformation[0].stamp_).toSec();
+            
             findPairsOFlow(m_leftImages[0], m_leftImages[1], points1, points2);
             compute3DVectors(points1, points2, m_leftImages[1], m_dispImages[0], m_dispImages[1], outputVectors);
             
@@ -109,6 +114,10 @@ void OFlow3dGenerator::process(const sensor_msgs::ImageConstPtr& l_image_msg, co
             cloudMsg.header.frame_id = m_motionFrame; // l_info_msg->header.frame_id;
             cloudMsg.header.stamp = ros::Time::now();
             m_flowVectorsPub.publish(cloudMsg);
+            
+            END_CLOCK(totalCompute, startCompute)
+            
+            ROS_INFO("[%s] Total time: %f seconds", __FUNCTION__, totalCompute);
         }
     } catch (tf::TransformException ex){
         ROS_ERROR("%s",ex.what());
@@ -122,7 +131,7 @@ inline void OFlow3dGenerator::findPairsOFlow(const cv::Mat & img1, const cv::Mat
     // We look for correspondences using Optical flow
     // vector of keypoints
     vector<cv::KeyPoint> keypoints1;
-    cv::FastFeatureDetector fastDetector(50);
+    cv::FastFeatureDetector fastDetector(1);
     fastDetector.detect(img1, keypoints1);
     
     if (keypoints1.size() == 0)
@@ -160,6 +169,8 @@ inline void OFlow3dGenerator::findPairsOFlow(const cv::Mat & img1, const cv::Mat
     
     outPoints1 = pointsA;
     outPoints2 = pointsB;
+//     outPoints1 = points1;
+//     outPoints2 = points2;
     
 }
 
@@ -186,9 +197,12 @@ inline void OFlow3dGenerator::compute3DVectors(const vector<cv::Point2f> & origP
         flow.y = motDestPoint3D.y;
         flow.z = motDestPoint3D.z;
     
-        flow.normal_x = motDestPoint3D.x - motOrigPoint3D.x;
-        flow.normal_y = motDestPoint3D.y - motOrigPoint3D.y;
-        flow.normal_z = motDestPoint3D.z - motOrigPoint3D.z;
+//         flow.normal_x = motDestPoint3D.x - motOrigPoint3D.x;
+//         flow.normal_y = motDestPoint3D.y - motOrigPoint3D.y;
+//         flow.normal_z = motDestPoint3D.z - motOrigPoint3D.z;
+        flow.normal_x = (motOrigPoint3D.x - motDestPoint3D.x) / m_deltaTime;
+        flow.normal_y = (motDestPoint3D.y - motOrigPoint3D.y) / m_deltaTime;
+        flow.normal_z = (motOrigPoint3D.z - motDestPoint3D.z) / m_deltaTime;
         
         flow.b = img.at<cv::Vec3b>(itDest->y, itDest->x)[0];
         flow.g = img.at<cv::Vec3b>(itDest->y, itDest->x)[1];
