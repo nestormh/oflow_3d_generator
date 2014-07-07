@@ -17,3 +17,4 @@ This ROS node receives a sequence of disparity and visual images, and computes t
 #### Parameters
 
 - approximate_sync (bool, default: false): Whether the node should use approximate synchronization of incoming messages. Set to true if cameras do not have synchronised timestamps.
+- motion_frame_id (string, default: map): Defines the frame w.r.t. motion is computed.
