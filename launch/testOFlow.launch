@@ -31,6 +31,7 @@
     <node pkg="oflow_3d_generator" type="oflow_3d_generator" name="oflow_3d_generator" output="screen" required="true">
         <remap from="stereo" to="stereo_and_odom" />
         <remap from="stereo_and_odom/left/$(arg namespace)/image" to="stereo_and_odom/left/image" />
+        <remap from="stereo_and_odom/right/$(arg namespace)/image" to="stereo_and_odom/right/image" />
         <remap from="stereo_and_odom/disparity/$(arg namespace)/image" to="elas_ros/disparity" />
         
         <param name="approximate_sync" value="true" />
